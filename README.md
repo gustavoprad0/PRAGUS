@@ -13,7 +13,7 @@ Um widget para KDE Plasma 6 com chat via Codex, monitoramento do computador, not
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square)
 ![Licença MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-a4a5b0?style=flat-square)
 
-<img src="docs/preview.png" width="900" alt="Prévia atualizada do PRAGUS com relógio em fonte encorpada, paginação de conexões e anexos, contagem regressiva das cotas e previsão animada de sete dias" />
+<img src="docs/preview.gif" width="900" alt="Prévia atualizada do PRAGUS com relógio em fonte encorpada, paginação de conexões e anexos, contagem regressiva das cotas e previsão animada de sete dias" />
 
 <sub>Interface real com dados demonstrativos.</sub>
 
@@ -114,7 +114,7 @@ package/
   metadata.json         Metadados do widget
   contents/ui/          Interface QML e recursos visuais
   contents/ui/bridge/   Registro do módulo nativo
-docs/preview.png       Prévia demonstrativa
+docs/preview.gif       Prévia demonstrativa
 build.sh                Compilação e empacotamento
 install.sh              Instalação ou atualização local
 ```

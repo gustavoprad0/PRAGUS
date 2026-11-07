@@ -67,6 +67,17 @@ Item {
     readonly property bool newsPaused: newsHover.hovered
     function percent(v) { return v >= 0 ? Math.round(v) + "%" : "—" }
     function gib(used, total) { const digits = total >= 100 ? 0 : 1; return used >= 0 ? used.toFixed(digits).replace(".", ",") + " / " + total.toFixed(digits).replace(".", ",") + " GiB" : "—" }
+    function newsTitle(story) {
+        const title = String(story.title || "").trim()
+        const source = String(story.source || "").trim()
+        if (source) {
+            for (const separator of [" - ", " – ", " — "]) {
+                const suffix = separator + source
+                if (title.toLowerCase().endsWith(suffix.toLowerCase())) return title.slice(0, -suffix.length).trim()
+            }
+        }
+        return title
+    }
     function modelName(id, name) {
         const match = id.match(/^gpt[- ]?(\d+(?:\.\d+)*)(?:-(.+))?$/i)
         return match ? "GPT " + match[1] + (match[2] ? " - " + match[2].replace(/-/g, " ").toUpperCase() : "") : (name || id)
@@ -127,6 +138,14 @@ Item {
         ScriptAction { script: root.newsPage = root.nextNewsPage }
         ParallelAnimation { NumberAnimation { target: newsContent; property: "opacity"; to: 1; duration: 180 } NumberAnimation { target: newsContent; property: "scale"; to: 1; duration: 180; easing.type: Easing.OutCubic } }
     }
+    PageTransition {
+        id: connectionsPaging; objectName: "connectionsPaging"
+        targetItem: connectionList; pageCount: Math.max(1, Math.ceil(dashboard.peripheralDevices.length / 3))
+    }
+    PageTransition {
+        id: attachmentPaging; objectName: "attachmentPaging"
+        targetItem: attachmentRow; pageCount: Math.max(1, Math.ceil(client.attachments.length / attachmentTray.pageSize))
+    }
     ScrollView {
         anchors.fill: parent; clip: true
         contentWidth: availableWidth
@@ -165,7 +184,7 @@ Item {
                     Item { Layout.fillHeight: true; Layout.minimumHeight: 2 }
                     Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: dashboard.greeting; color: root.ink; font.pixelSize: 22; font.weight: Font.DemiBold }
                     Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: dashboard.localDate; color: root.muted; font.pixelSize: 12; wrapMode: Text.Wrap }
-                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: dashboard.localTime; color: "#e6e7ed"; font.pixelSize: 30; minimumPixelSize: 20; fontSizeMode: Text.HorizontalFit; font.weight: Font.DemiBold; font.family: "Adwaita Mono" }
+                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; objectName: "clockText"; text: dashboard.localTime; color: "#e6e7ed"; font.pixelSize: 30; minimumPixelSize: 20; fontSizeMode: Text.HorizontalFit; font.weight: Font.ExtraBold; font.family: "Noto Sans"; font.features: { "tnum": 1 } }
                     Item { Layout.fillHeight: true; Layout.minimumHeight: 2 }
                     ColumnLayout {
                         objectName: "identityWeatherFooter"
@@ -186,12 +205,12 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 10; spacing: 6
                     SectionHeading { text: "CONEXÕES" }
-                    Flickable {
-                        Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentHeight: connectionList.implicitHeight; boundsBehavior: Flickable.StopAtBounds
+                    Item {
+                        Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: connectionList.implicitHeight; clip: true
                         ColumnLayout {
                             id: connectionList; width: parent.width; spacing: 7
                             Repeater {
-                                model: dashboard.peripheralDevices
+                                model: dashboard.peripheralDevices.slice(connectionsPaging.page * 3, connectionsPaging.page * 3 + 3)
                                 delegate: Meter {
                                     required property var modelData
                                     Layout.fillWidth: true; label: modelData.name; value: modelData.percent; remaining: true; battery: true
@@ -200,7 +219,12 @@ Item {
                             }
                         }
                         Text { visible: dashboard.peripheralDevices.length === 0; text: "Nenhum periférico identificado"; color: root.muted; font.pixelSize: 11 }
-                        ScrollBar.vertical: ScrollBar { width: 3 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 2; visible: connectionsPaging.pageCount > 1
+                        Text { Layout.fillWidth: true; text: (connectionsPaging.page + 1) + "/" + connectionsPaging.pageCount; color: root.muted; font.pixelSize: 11 }
+                        IconButton { objectName: "previousConnections"; implicitWidth: 22; implicitHeight: 20; text: "‹"; hint: "Conexões anteriores"; enabled: connectionsPaging.page > 0 && !connectionsPaging.running; onClicked: connectionsPaging.goTo(connectionsPaging.page - 1) }
+                        IconButton { objectName: "nextConnections"; implicitWidth: 22; implicitHeight: 20; text: "›"; hint: "Próximas conexões"; enabled: connectionsPaging.page < connectionsPaging.pageCount - 1 && !connectionsPaging.running; onClicked: connectionsPaging.goTo(connectionsPaging.page + 1) }
                     }
                 }
             }
@@ -300,40 +324,38 @@ Item {
                         }
                     }
                     }
-                    Flickable {
+                    RowLayout {
                         id: attachmentTray; objectName: "attachmentTray"
-                        Layout.fillWidth: true; Layout.preferredHeight: visible ? Math.min(26, attachmentFlow.implicitHeight) : 0
-                        Layout.minimumHeight: Layout.preferredHeight; Layout.maximumHeight: Layout.preferredHeight
-                        visible: client.attachments.length > 0
-                        clip: true; contentWidth: width; contentHeight: attachmentFlow.implicitHeight
-                        flickableDirection: Flickable.VerticalFlick; boundsBehavior: Flickable.StopAtBounds
-                        maximumFlickVelocity: 400; flickDeceleration: 4500
-                        ScrollBar.vertical: ScrollBar { width: 4; policy: ScrollBar.AsNeeded }
-                        WheelHandler {
-                            onWheel: event => {
-                                attachmentTray.contentY = Math.max(0, Math.min(Math.max(0, attachmentTray.contentHeight - attachmentTray.height), attachmentTray.contentY - (event.pixelDelta.y || event.angleDelta.y / 120 * 26)))
-                                event.accepted = true
-                            }
-                        }
-                        Flow {
-                            id: attachmentFlow; objectName: "attachmentFlow"; width: Math.max(0, attachmentTray.width - 9); spacing: 5
-                            Repeater {
-                                model: client.attachments
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    objectName: "attachmentChip"
-                                    width: Math.min(142, attachmentFlow.width); height: 26; radius: 5; color: "#2a2d3a"; border.color: "#4a4e60"
-                                    RowLayout {
-                                        anchors.fill: parent; anchors.margins: 3; spacing: 4
-                                        Image { visible: modelData.kind === "image"; source: modelData.preview || ""; Layout.preferredWidth: 18; Layout.preferredHeight: 18; fillMode: Image.PreserveAspectFit }
-                                        ColumnLayout {
-                                            Layout.fillWidth: true; Layout.minimumWidth: 0; spacing: 2
-                                            Text { Layout.fillWidth: true; text: modelData.name; color: root.ink; font.pixelSize: 11; elide: Text.ElideMiddle }
+                        readonly property bool paginated: client.attachments.length > Math.max(1, Math.floor((width + 5) / 147))
+                        readonly property int pageSize: Math.max(1, Math.floor((width - (paginated ? 89 : 0) + 5) / 147))
+                        Layout.fillWidth: true; Layout.preferredHeight: 26; Layout.minimumHeight: 26; Layout.maximumHeight: 26
+                        visible: client.attachments.length > 0; spacing: 5
+                        Item {
+                            Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumWidth: 0; clip: true
+                            Row {
+                                id: attachmentRow; objectName: "attachmentRow"; width: parent.width; height: 26; spacing: 5
+                                Repeater {
+                                    model: client.attachments.slice(attachmentPaging.page * attachmentTray.pageSize, (attachmentPaging.page + 1) * attachmentTray.pageSize)
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        objectName: "attachmentChip"
+                                        width: Math.min(142, attachmentRow.width); height: 26; radius: 5; color: "#2a2d3a"; border.color: "#4a4e60"
+                                        RowLayout {
+                                            anchors.fill: parent; anchors.margins: 3; spacing: 4
+                                            Image { visible: modelData.kind === "image"; source: modelData.preview || ""; Layout.preferredWidth: 18; Layout.preferredHeight: 18; fillMode: Image.PreserveAspectFit }
+                                            Text { Layout.fillWidth: true; Layout.minimumWidth: 0; text: modelData.name; color: root.ink; font.pixelSize: 11; elide: Text.ElideMiddle }
+                                            IconButton { implicitWidth: 18; implicitHeight: 18; text: "×"; hint: "Remover anexo"; enabled: !client.busy; onClicked: client.removeAttachment(modelData.id) }
                                         }
-                                        IconButton { implicitWidth: 18; implicitHeight: 18; text: "×"; hint: "Remover anexo"; enabled: !client.busy; onClicked: client.removeAttachment(modelData.id) }
                                     }
                                 }
                             }
+                        }
+                        RowLayout {
+                            Layout.preferredWidth: 84; Layout.minimumWidth: 84; Layout.maximumWidth: 84
+                            visible: attachmentTray.paginated; spacing: 2
+                            IconButton { objectName: "previousAttachments"; implicitWidth: 22; implicitHeight: 20; text: "‹"; hint: "Anexos anteriores"; enabled: attachmentPaging.page > 0 && !attachmentPaging.running; onClicked: attachmentPaging.goTo(attachmentPaging.page - 1) }
+                            Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: (attachmentPaging.page + 1) + "/" + attachmentPaging.pageCount; color: root.muted; font.pixelSize: 11 }
+                            IconButton { objectName: "nextAttachments"; implicitWidth: 22; implicitHeight: 20; text: "›"; hint: "Próximos anexos"; enabled: attachmentPaging.page < attachmentPaging.pageCount - 1 && !attachmentPaging.running; onClicked: attachmentPaging.goTo(attachmentPaging.page + 1) }
                         }
                     }
                     Item {
@@ -530,10 +552,10 @@ Item {
                                 background: Rectangle { color: parent.hovered ? "#343641" : "#252630"; radius: 5 }
                                 contentItem: ColumnLayout {
                                     spacing: 4
-                                    AdaptiveHeadline { objectName: "newsHeadline"; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 0; text: modelData.title; color: root.ink }
-                                    Text { objectName: "newsSource"; Layout.fillWidth: true; text: modelData.source || "Google News"; color: root.accent; font.pixelSize: 11; textFormat: Text.PlainText; elide: Text.ElideRight }
+                                    AdaptiveHeadline { objectName: "newsHeadline"; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 0; text: root.newsTitle(modelData); color: root.ink }
+                                    Text { objectName: "newsSource"; Layout.fillWidth: true; text: modelData.source || "Google News"; color: root.muted; font.pixelSize: 11; textFormat: Text.PlainText; elide: Text.ElideRight }
                                 }
-                                ToolTip.visible: hovered; ToolTip.text: modelData.title
+                                ToolTip.visible: hovered; ToolTip.text: root.newsTitle(modelData)
                             }
                         }
                         Text { Layout.fillWidth: true; Layout.fillHeight: true; visible: dashboard.news.length === 0; text: dashboard.newsStatus; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap }

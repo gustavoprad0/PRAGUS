@@ -5,7 +5,7 @@
     "Description": "Assistente Codex, notícias e sistema em um painel compacto.",
     "Icon": "chat-message-new",
     "Category": "Online Services",
-    "Version": "1.0.5",
+    "Version": "1.0.7",
     "License": "MIT",
     "Authors": [{"Name": "Projeto pessoal"}]
   },

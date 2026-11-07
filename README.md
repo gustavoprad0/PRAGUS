@@ -13,7 +13,7 @@ Um widget para KDE Plasma 6 com chat via Codex, monitoramento do computador, not
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square)
 ![Licença MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-a4a5b0?style=flat-square)
 
-<img src="docs/preview.png" width="900" alt="Prévia atualizada do PRAGUS com espaçamento nas mensagens, contagem regressiva das cotas, barras por faixa de uso e previsão de sete dias" />
+<img src="docs/preview.png" width="900" alt="Prévia atualizada do PRAGUS com relógio em fonte encorpada, paginação de conexões e anexos, contagem regressiva das cotas e previsão animada de sete dias" />
 
 <sub>Interface real com dados demonstrativos.</sub>
 
@@ -22,11 +22,11 @@ Um widget para KDE Plasma 6 com chat via Codex, monitoramento do computador, not
 ## O que ele faz
 
 - **Pergunte ao PRAGUS:** respostas em tempo real, seleção de modelo e esforço, carregamento, interrupção e limpeza da conversa. Barras mostram o saldo disponível das cotas de 5 horas e semanal, com contagem regressiva para renovação em horas, minutos e segundos.
-- **Anexos:** imagens e arquivos no contexto da pergunta, com miniaturas compactas, remoção individual e rolagem vertical em uma faixa de uma linha. A lixeira limpa também os anexos ainda não enviados.
+- **Anexos:** imagens e arquivos no contexto da pergunta, com miniaturas compactas, remoção individual e paginação por setas em uma faixa de uma linha, com a mesma transição suave das notícias. A lixeira limpa também os anexos ainda não enviados.
 - **Sistema:** CPU e GPU em porcentagem; RAM e disco em GiB usados/total. As barras ficam verdes abaixo de 70% de uso, amarelas de 70% a menos de 90% e vermelhas a partir de 90%. Os textos e valores permanecem brancos.
-- **Conexões:** bateria do computador e dos periféricos que publicam essa informação no Linux. Baterias e saldo das cotas ficam verdes acima de 40%, amarelos acima de 20% até 40% e vermelhos até 20%; em Conexões, o ícone de bateria acompanha a cor da barra. O nome do computador vem do modelo DMI, com alternativa para o hostname.
-- **No radar:** manchetes do Google News Brasil, uma por vez, com troca a cada 30 segundos e pausa ao passar o mouse. Atualizar volta à primeira notícia.
-- **Previsão do tempo:** localização aproximada pela rede, condição atual e sete dias de previsão, com máximas, mínimas e ícones animados.
+- **Conexões:** bateria do computador e dos periféricos que publicam essa informação no Linux. Baterias e saldo das cotas ficam verdes acima de 40%, amarelos acima de 20% até 40% e vermelhos até 20%; em Conexões, o ícone de bateria acompanha a cor da barra. O nome do computador vem do modelo DMI, com alternativa para o hostname. Quando há mais de três conexões, setas permitem alternar as páginas com animação, mantendo o tamanho do cartão.
+- **No radar:** manchetes do Google News Brasil, uma por vez, com troca a cada 30 segundos e pausa ao passar o mouse. Atualizar volta à primeira notícia. O nome da fonte aparece apenas no rodapé da manchete.
+- **Previsão do tempo:** localização aproximada pela rede, condição atual e sete dias de previsão, com máximas e mínimas. Ícones de sol, nuvens, chuva, neve e trovoada têm animações contínuas no próprio widget. Os dados são atualizados automaticamente a cada dez minutos; as animações permanecem em movimento entre as consultas.
 
 O layout adapta os cartões à largura disponível. Relógio e saudação seguem o fuso configurado no sistema; a previsão usa o fuso da localização detectada.
 
@@ -83,7 +83,7 @@ kpackagetool6 -t Plasma/Applet -r local.codex.desk
 
 ## Dados e privacidade
 
-O repositório contém código, recursos visuais e um prévia demonstrativa. Credenciais, arquivos de ambiente, logs e binários gerados são ignorados pelo Git. O widget usa o login do Codex CLI, sem chaves de API embutidas no código.
+O repositório contém código, recursos visuais e uma prévia demonstrativa. Credenciais, arquivos de ambiente, logs e binários gerados são ignorados pelo Git. O widget usa o login do Codex CLI, sem chaves de API embutidas no código.
 
 As mensagens ficam na memória do widget até limpar ou reiniciar. **Perguntas e anexos enviados são processados pelo Codex**, conforme a conta e as configurações do CLI, que pode manter registros próprios. Limpar o widget não apaga registros mantidos pelo CLI ou pelo serviço.
 

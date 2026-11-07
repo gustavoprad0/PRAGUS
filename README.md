@@ -15,7 +15,7 @@ Um widget para KDE Plasma 6 com chat via Codex, monitoramento do computador, not
 
 <img src="docs/preview.png" width="900" alt="Prévia atualizada do PRAGUS com espaçamento nas mensagens, contagem regressiva das cotas, barras por faixa de uso e previsão de sete dias" />
 
-<sub>Interface real com dados demonstrativos. Nenhuma informação pessoal na prévia.</sub>
+<sub>Interface real com dados demonstrativos.</sub>
 
 </div>
 

@@ -326,8 +326,8 @@ Item {
                     }
                     RowLayout {
                         id: attachmentTray; objectName: "attachmentTray"
-                        readonly property bool paginated: client.attachments.length > Math.max(1, Math.floor((width + 5) / 147))
-                        readonly property int pageSize: Math.max(1, Math.floor((width - (paginated ? 89 : 0) + 5) / 147))
+                        readonly property bool paginated: client.attachments.length > Math.max(1, Math.min(3, Math.floor((width + 5) / 115)))
+                        readonly property int pageSize: Math.max(1, Math.min(3, Math.floor((width - (paginated ? 89 : 0) + 5) / 115)))
                         Layout.fillWidth: true; Layout.preferredHeight: 26; Layout.minimumHeight: 26; Layout.maximumHeight: 26
                         visible: client.attachments.length > 0; spacing: 5
                         Item {
@@ -339,7 +339,7 @@ Item {
                                     delegate: Rectangle {
                                         required property var modelData
                                         objectName: "attachmentChip"
-                                        width: Math.min(142, attachmentRow.width); height: 26; radius: 5; color: "#2a2d3a"; border.color: "#4a4e60"
+                                        width: Math.min(142, Math.max(0, (attachmentRow.width - 5 * (attachmentTray.pageSize - 1)) / attachmentTray.pageSize)); height: 26; radius: 5; color: "#2a2d3a"; border.color: "#4a4e60"
                                         RowLayout {
                                             anchors.fill: parent; anchors.margins: 3; spacing: 4
                                             Image { visible: modelData.kind === "image"; source: modelData.preview || ""; Layout.preferredWidth: 18; Layout.preferredHeight: 18; fillMode: Image.PreserveAspectFit }

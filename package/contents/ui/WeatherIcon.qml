@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 
 Item {
     id: root
@@ -37,10 +38,10 @@ Item {
         }
     }
     Repeater {
-        model: root.rain || root.snow ? 3 : 0
+        model: root.rain || root.snow ? (root.code >= 95 ? 2 : 3) : 0
         delegate: Rectangle {
             required property int index
-            x: 11 + index * 9; y: 26
+            x: root.code >= 95 ? cloud.x + 2 + index * 26 : 11 + index * 9; y: 26
             width: root.snow ? 3 : 2; height: root.snow ? 3 : 5; radius: 1.5; color: "#83b2d6"; rotation: root.snow ? 0 : 15
             SequentialAnimation on y {
                 running: root.animated && root.visible; loops: Animation.Infinite
@@ -51,5 +52,23 @@ Item {
             SequentialAnimation on opacity { running: root.animated && root.visible; loops: Animation.Infinite; NumberAnimation { from: .25; to: 1; duration: 550 } NumberAnimation { from: 1; to: .25; duration: 550 } }
         }
     }
-    Text { visible: root.code >= 95; x: 14; y: 18; text: "ϟ"; color: "#f0cb76"; font.pixelSize: 17; font.bold: true }
+    Shape {
+        objectName: "weatherLightning"
+        visible: root.code >= 95
+        x: cloud.x + (cloud.width - width) / 2; y: cloud.y + 13
+        width: 12; height: 20; opacity: .85
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeWidth: 0; strokeColor: "transparent"; fillColor: "#f7ce65"
+            PathSvg { path: "M6 0H10L7 7H12L3 20L5 11H0Z" }
+        }
+        SequentialAnimation on opacity {
+            running: root.animated && root.visible && root.code >= 95; loops: Animation.Infinite
+            PauseAnimation { duration: 1300 }
+            NumberAnimation { from: .65; to: 1; duration: 90 }
+            NumberAnimation { from: 1; to: .35; duration: 80 }
+            NumberAnimation { from: .35; to: 1; duration: 100 }
+            NumberAnimation { from: 1; to: .65; duration: 260 }
+        }
+    }
 }

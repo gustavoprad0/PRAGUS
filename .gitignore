@@ -1,0 +1,35 @@
+# Arquivos gerados pela compilação
+*.plasmoid
+*.so
+*.o
+*.a
+*.moc
+moc_*.cpp
+moc_predefs.h
+Makefile
+.qmake.stash
+build/
+
+# Configuração local, credenciais e dados de execução
+.env
+.env.*
+!.env.example
+.codex/
+auth.json
+credentials.json
+*.pem
+*.key
+*.log
+.cache/
+pragus-context-*/
+
+# Arquivos do editor e do sistema operacional
+.vscode/
+.idea/
+.DS_Store
+*~
+__pycache__/
+*.pyc
+
+# Capturas locais de desenvolvimento
+/preview-*.png

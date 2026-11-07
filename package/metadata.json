@@ -1,0 +1,14 @@
+{
+  "KPlugin": {
+    "Id": "local.codex.desk",
+    "Name": "PRAGUS",
+    "Description": "Assistente Codex, notícias e sistema em um painel compacto.",
+    "Icon": "chat-message-new",
+    "Category": "Online Services",
+    "Version": "1.0.5",
+    "License": "MIT",
+    "Authors": [{"Name": "Projeto pessoal"}]
+  },
+  "KPackageStructure": "Plasma/Applet",
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

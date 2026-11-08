@@ -29,7 +29,12 @@ Item {
     }
     Connections {
         target: root.Window.window
-        function onActiveChanged() { if (root.Window.window && !root.Window.window.active) root.modelOptionsExpanded = false }
+        function onActiveChanged() {
+            if (root.Window.window && !root.Window.window.active) {
+                root.modelOptionsExpanded = false
+                historyPopup.close(false)
+            }
+        }
     }
     property bool clearing: false
     property int nextNewsPage: 0
@@ -59,7 +64,7 @@ Item {
         onTriggered: root.advanceNews()
     }
     function clearConversation() {
-        if (client.busy || clearing || (!answers.count && !client.attachments.length)) return
+        if (client.busy || client.conversationLoading || clearing || (!answers.count && !client.attachments.length)) return
         clearing = true; clearTransition.restart()
     }
     property int newsPage: 0
@@ -82,9 +87,23 @@ Item {
         const match = id.match(/^gpt[- ]?(\d+(?:\.\d+)*)(?:-(.+))?$/i)
         return match ? "GPT " + match[1] + (match[2] ? " - " + match[2].replace(/-/g, " ").toUpperCase() : "") : (name || id)
     }
+    function effortName(value) {
+        const names = {none: "NENHUM", minimal: "MÍNIMO", low: "BAIXO", medium: "MÉDIO", high: "ALTO", xhigh: "EXTRA ALTO", max: "MÁXIMO", ultra: "ULTRA"}
+        return names[value] || String(value).replace(/[_-]+/g, " ").toLocaleUpperCase()
+    }
     function ask() {
         root.followAnswer = true
-        if ((composer.text.trim() || client.attachments.length) && !client.busy && client.send(composer.text)) composer.clear()
+        if ((composer.text.trim() || client.attachments.length) && !client.busy && !client.conversationLoading && client.send(composer.text)) composer.clear()
+    }
+    function showHistory() {
+        root.modelOptionsExpanded = false
+        const viewport = dashboardScroll.contentItem
+        const top = questionCard.mapToItem(viewport.contentItem, 0, 0).y
+        if (top < viewport.contentY) viewport.contentY = top
+        else if (top + questionCard.height > viewport.contentY + viewport.height) {
+            viewport.contentY = Math.max(0, Math.min(top, top + questionCard.height - viewport.height))
+        }
+        historyPopup.open()
     }
     FileDialog {
         id: attachmentPicker
@@ -146,7 +165,31 @@ Item {
         id: attachmentPaging; objectName: "attachmentPaging"
         targetItem: attachmentRow; pageCount: Math.max(1, Math.ceil(client.attachments.length / attachmentTray.pageSize))
     }
+    ConversationHistory {
+        id: historyPopup
+        parent: questionCard
+        anchors.fill: parent
+        z: 100
+        client: root.client; ink: root.ink; muted: root.muted; accent: root.accent
+        onClosed: restoreFocus => { if (restoreFocus) historyButton.forceActiveFocus() }
+    }
+    MouseArea {
+        id: dismissHistory; objectName: "dismissHistory"
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        anchors.fill: parent
+        z: 10000
+        enabled: historyPopup.opened
+        visible: enabled
+        acceptedButtons: Qt.AllButtons
+        onPressed: mouse => {
+            const position = historyPopup.mapFromItem(dismissHistory, mouse.x, mouse.y)
+            if (position.x < 0 || position.y < 0 || position.x >= historyPopup.width || position.y >= historyPopup.height) historyPopup.close(false)
+            mouse.accepted = false
+        }
+        onWheel: wheel => { wheel.accepted = false }
+    }
     ScrollView {
+        id: dashboardScroll
         anchors.fill: parent; clip: true
         contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -234,7 +277,7 @@ Item {
                     Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumWidth: 0
                     Layout.preferredWidth: root.wide ? 3 : 1; spacing: 8
             Card {
-                objectName: "questionCard"
+                id: questionCard; objectName: "questionCard"
                 Layout.fillWidth: true; Layout.fillHeight: true
                 Layout.minimumHeight: root.wide ? 220 : 0
                 Layout.preferredWidth: 1
@@ -247,7 +290,18 @@ Item {
                         Caption { objectName: "sectionTitle"; text: "PERGUNTE AO PRAGUS" }
                         HeadingDivider {}
                         IconButton {
-                            objectName: "clearChat"; hint: "Limpar conversa e anexos"; enabled: !client.busy && !root.clearing && (answers.count > 0 || client.attachments.length > 0)
+                            id: historyButton
+                            objectName: "openHistory"; hint: "Histórico de conversas"; enabled: !client.busy && !client.conversationLoading && !root.clearing
+                            onClicked: root.showHistory()
+                            contentItem: Item {
+                                opacity: historyButton.enabled ? 1 : .4
+                                Rectangle { anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: "transparent"; border.color: root.accent; border.width: 1.5 }
+                                Rectangle { x: parent.width / 2 - .7; y: parent.height / 2 - 4; width: 1.4; height: 5; radius: .7; color: root.accent }
+                                Rectangle { x: parent.width / 2; y: parent.height / 2; width: 4; height: 1.4; radius: .7; color: root.accent; rotation: 25; transformOrigin: Item.Left }
+                            }
+                        }
+                        IconButton {
+                            objectName: "clearChat"; hint: "Limpar conversa e anexos"; enabled: !client.busy && !client.conversationLoading && !root.clearing && (answers.count > 0 || client.attachments.length > 0)
                             onClicked: root.clearConversation()
                             contentItem: ClearIcon { opacity: parent.enabled ? 1 : .4 }
                         }
@@ -313,8 +367,15 @@ Item {
                             ToolTip.visible: hovered; ToolTip.text: "Modelo: " + client.model
                         }
                         ModelSelect {
-                            objectName: "effortSelect"; Layout.preferredWidth: 72
-                            model: client.efforts.map(function(e) { return {id: e, name: ({minimal: "Mínimo", low: "Baixo", medium: "Médio", high: "Alto", xhigh: "Máximo"})[e] || e} })
+                            id: effortSelect; objectName: "effortSelect"
+                            readonly property real labelWidth: model.reduce(function(width, option) { return Math.max(width, effortFontMetrics.advanceWidth(option.name)) }, 0)
+                            Layout.minimumWidth: Math.ceil(labelWidth) + leftPadding + rightPadding
+                            Layout.preferredWidth: Layout.minimumWidth
+                            Layout.maximumWidth: Layout.minimumWidth
+                            fullLabels: true; font.capitalization: Font.AllUppercase
+                            leftPadding: 12; rightPadding: 22
+                            FontMetrics { id: effortFontMetrics; font: effortSelect.font }
+                            model: client.efforts.map(function(e) { return {id: e, name: root.effortName(e)} })
                             textRole: "name"; valueRole: "id"; currentIndex: client.efforts.indexOf(client.effort)
                             enabled: root.modelOptionsExpanded && client.ready && !client.busy && !root.clearing
                             onActivated: client.effort = currentValue
@@ -370,13 +431,14 @@ Item {
                         id: answers; objectName: "answers"
                         anchors.fill: parent
                         anchors.topMargin: 10 + (attachmentErrorLabel.visible ? attachmentErrorLabel.height + 4 : 0)
-                        anchors.bottomMargin: 8
+                        anchors.bottomMargin: 8 + (activity.visible ? activity.height + 6 : 0)
                         enabled: !root.clearing
                         model: client.messages; clip: true; spacing: 8
                         boundsBehavior: Flickable.StopAtBounds
                         maximumFlickVelocity: 550; flickDeceleration: 4500
                         onMovementStarted: root.followAnswer = false
                         onContentHeightChanged: if (root.followAnswer) Qt.callLater(function() { answers.positionViewAtEnd() })
+                        onHeightChanged: if (root.followAnswer) Qt.callLater(function() { answers.positionViewAtEnd() })
                         delegate: Item {
                             id: message
                             required property string speaker
@@ -403,7 +465,7 @@ Item {
                                 }
                                 Column {
                                     id: messageColumn; width: parent.width - 20; anchors.centerIn: parent; spacing: 4
-                                    Text { text: message.speaker === "user" ? "Eu" : "Codex"; color: root.accent; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                    Text { text: message.speaker === "user" ? "Eu" : "Pragus"; color: root.accent; font.pixelSize: 11; font.weight: Font.DemiBold }
                                     Repeater {
                                         model: message.files
                                         delegate: Column {
@@ -415,14 +477,6 @@ Item {
                                     }
                                     Text { id: bodyText; width: parent.width; text: message.body; color: root.ink; font.pixelSize: 13; wrapMode: Text.Wrap; textFormat: Text.PlainText }
                                 }
-                            }
-                        }
-                        footer: Item {
-                            width: answers.width; height: client.busy || client.error ? activity.implicitHeight + 8 : 0
-                            RowLayout {
-                                id: activity; objectName: "answerActivity"; width: parent.width; visible: client.busy || !!client.error
-                                BusyIndicator { running: client.busy; visible: client.busy; implicitWidth: 20; implicitHeight: 20; palette.dark: root.accent }
-                                Text { Layout.fillWidth: true; text: client.error || "Codex está respondendo…"; color: client.error ? "#ffc4b6" : root.muted; font.pixelSize: 12; wrapMode: Text.Wrap }
                             }
                         }
                         Connections { target: client; function onScrollToLatest() { Qt.callLater(function() { answers.positionViewAtEnd() }) } function onChanged() { if (client.busy) Qt.callLater(function() { answers.positionViewAtEnd() }) } }
@@ -438,6 +492,53 @@ Item {
                         }
                         ScrollBar.vertical: ScrollBar { width: 3 }
                     }
+                    Rectangle {
+                        id: activity; objectName: "answerActivity"
+                        readonly property bool working: client.busy || client.conversationLoading
+                        width: Math.min(parent.width - 26, activityContent.implicitWidth + 20)
+                        implicitHeight: activityContent.implicitHeight + 16
+                        anchors.left: parent.left; anchors.leftMargin: 13
+                        anchors.bottom: parent.bottom; anchors.bottomMargin: 8
+                        visible: working || !!client.error
+                        radius: 9; color: client.error ? "#352b30" : "#282c38"
+                        border.color: client.error ? "#6b4548" : "#41495c"
+                        RowLayout {
+                            id: activityContent
+                            anchors.fill: parent; anchors.margins: 8; spacing: 8
+                            Image {
+                                visible: activity.working; source: "assets/pragus.png"
+                                Layout.preferredWidth: 20; Layout.preferredHeight: 20; sourceSize: Qt.size(40, 40)
+                                fillMode: Image.PreserveAspectFit
+                                SequentialAnimation on opacity {
+                                    running: activity.visible && activity.working && root.visible; loops: Animation.Infinite
+                                    NumberAnimation { to: .45; duration: 850; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1; duration: 850; easing.type: Easing.InOutSine }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true; Layout.minimumWidth: 0
+                                text: client.error || (client.conversationLoading ? "Pragus recuperando contexto" : "Pragus está respondendo")
+                                color: client.error ? "#ffc4b6" : root.accent; font.pixelSize: 12; wrapMode: Text.Wrap
+                            }
+                            Row {
+                                visible: activity.working; spacing: 3
+                                Repeater {
+                                    model: 3
+                                    delegate: Rectangle {
+                                        required property int index
+                                        width: 4; height: 4; radius: 2; color: root.accent; opacity: .3
+                                        SequentialAnimation on opacity {
+                                            running: activity.visible && activity.working && root.visible; loops: Animation.Infinite
+                                            PauseAnimation { duration: index * 140 }
+                                            NumberAnimation { to: 1; duration: 280; easing.type: Easing.InOutSine }
+                                            NumberAnimation { to: .3; duration: 380; easing.type: Easing.InOutSine }
+                                            PauseAnimation { duration: (2 - index) * 140 + 240 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Text { id: attachmentErrorLabel; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; z: 3; visible: !!client.attachmentError; text: client.attachmentError; color: "#ff909e"; font.pixelSize: 11; wrapMode: Text.Wrap }
                     }
                     RowLayout {
@@ -445,7 +546,7 @@ Item {
                         ToolButton {
                             id: attachButton
                             objectName: "attachFile"; implicitWidth: 28; implicitHeight: 28; padding: 0
-                            enabled: client.ready && !client.busy && !root.clearing
+                            enabled: client.ready && !client.busy && !client.conversationLoading && !root.clearing
                             onClicked: { client.dismissAttachmentError(); attachmentPicker.open() }
                             background: Rectangle { objectName: "attachmentButtonBackground"; radius: 5; color: root.composerButtonColor }
                             contentItem: Item { AttachIcon { anchors.centerIn: parent; width: 24; height: 24; scale: .8; opacity: attachButton.enabled ? 1 : .4 } }
@@ -457,15 +558,15 @@ Item {
                             Layout.fillWidth: true; Layout.minimumWidth: 0
                             implicitHeight: 33; padding: 7
                             placeholderTextColor: "#9496a4"
-                            placeholderText: client.ready ? "Pergunte algo.." : "Conectando ao Codex…"
-                            enabled: client.ready && !client.busy && !root.clearing; color: root.ink; font.pixelSize: 12
+                            placeholderText: client.conversationLoading ? "Recuperando conversa…" : client.ready ? "Pergunte ao Pragus…" : "Conectando ao Pragus…"
+                            enabled: client.ready && !client.busy && !client.conversationLoading && !root.clearing; color: root.ink; font.pixelSize: 12
                             background: Rectangle { color: "#24252e"; radius: 5; border.color: composer.activeFocus ? root.accent : "#464854" }
                             onAccepted: root.ask()
                         }
                         ToolButton {
                             id: sendButton; objectName: "sendQuestion"
                             implicitWidth: 28; implicitHeight: 28; padding: 0
-                            enabled: client.busy || (client.ready && (composer.text.trim().length > 0 || client.attachments.length > 0))
+                            enabled: client.busy || (client.ready && !client.conversationLoading && (composer.text.trim().length > 0 || client.attachments.length > 0))
                             onClicked: client.busy ? client.stop() : root.ask()
                             background: Rectangle { objectName: "sendButtonBackground"; radius: 5; color: root.composerButtonColor }
                             contentItem: Item {
